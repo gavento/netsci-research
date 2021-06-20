@@ -19,7 +19,7 @@ log = logging.getLogger(__name__)
 def gen_ba(n: int, k: int, seed: int, output_dir: Path):
     assert output_dir.is_dir()
     if seed is None:
-        seed = np.random.randint(1000000)
+        seed = np.random.RandomState().randint(1000000)
     path = output_dir / f"ba-n{n}-k{k}-s{seed:06}.json"
     name = f"Barabasi-Albert network, n={n}, k={k}, seed={seed}"
     with utils.logged_time(f"Creating {path}: {name}"):

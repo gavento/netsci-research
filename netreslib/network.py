@@ -3,6 +3,7 @@ from pathlib import Path
 
 import attr
 import h5py
+import hdf5plugin
 import networkx as nx
 import numpy as np
 
@@ -26,12 +27,17 @@ class Network:
             net.attribs = d["attribs"]
         return net
 
-    def write(self):
+    def write(self, indent=2):
         """
         Write all data without closing data files etc.
         """
         with utils.open_file(self.json_path, mode="w") as f:
-            json.dump({"updated": utils.now_isofmt(), "attribs": self.attribs}, f, indent=2)
+            json.dump(
+                {"updated": utils.now_isofmt(), "attribs": self.attribs},
+                f,
+                indent=indent,
+            )
+            f.write("\n")
         self.h5_file.flush()
 
     def export_graphml(self, compress_gzip=True):
@@ -60,7 +66,7 @@ class Network:
         net.attribs["digraph"] = digraph
         net.attribs["created"] = utils.now_isofmt()
         net.attribs["name"] = ""
-        net.h5_file["/edges"] = edges
+        net.add_array("/edges", edges)
         net.write()
         return net
 
@@ -76,6 +82,12 @@ class Network:
         if not self["directed"]:
             edges = np.concatenate((edges, edges[:, 1::-1]))
         return edges
+
+    def add_array(self, name: str, array_data: np.ndarray, compress: bool = True):
+        c = hdf5plugin.Blosc(cname="zstd") if compress else None
+        if array_data.nbytes < 1024:
+            c = None
+        self.h5_file.create_dataset(name, data=array_data, compression=c)
 
     @property
     def network(self):

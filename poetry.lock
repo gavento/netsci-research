@@ -274,6 +274,17 @@ numpy = [
 ]
 
 [[package]]
+name = "hdf5plugin"
+version = "3.0.0"
+description = "HDF5 Plugins for windows,MacOS and linux"
+category = "main"
+optional = false
+python-versions = "*"
+
+[package.dependencies]
+h5py = "*"
+
+[[package]]
 name = "identify"
 version = "2.2.10"
 description = "File identification library for Python"
@@ -1419,7 +1430,7 @@ python-versions = "*"
 [metadata]
 lock-version = "1.1"
 python-versions = ">=3.7.1,<4.0"
-content-hash = "9eca67f1d31788c677c8b19a193e72de0b36f11b70e0539dad38280f852f1ec1"
+content-hash = "267afb44c79ddaa2a85c3d64f8eba88ae5cb2868babe34b515404113369bb923"
 
 [metadata.files]
 absl-py = [
@@ -1626,6 +1637,14 @@ h5py = [
     {file = "h5py-3.2.1-cp39-cp39-manylinux1_x86_64.whl", hash = "sha256:d791b710d3e54c4d2c32cb881b183db5674ceb03bf6a0c1f3fb3cf50d8997e0a"},
     {file = "h5py-3.2.1-cp39-cp39-win_amd64.whl", hash = "sha256:7c5b5f18c96fb63399280a724734fd91e1781c6b60e385e439ad8e654a294ba4"},
     {file = "h5py-3.2.1.tar.gz", hash = "sha256:89474be911bfcdb34cbf0d98b8ec48b578c27a89fdb1ae4ee7513f1ef8d9249e"},
+]
+hdf5plugin = [
+    {file = "hdf5plugin-3.0.0-py3-none-macosx_10_9_x86_64.whl", hash = "sha256:fdf0f003a28dab4c180c11cc3ee077acf5c50e89f195a8c6f8cfcb337cf57d94"},
+    {file = "hdf5plugin-3.0.0-py3-none-manylinux_2_17_ppc64le.manylinux2014_ppc64le.whl", hash = "sha256:641b12a9d961edc670f445dc1dabd513fc46ff3cac1505933c9871be4e852fa1"},
+    {file = "hdf5plugin-3.0.0-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:22a6f7087f26cb95cf857268a5e32430def71e31c23bcd9619e5f6674f861f8e"},
+    {file = "hdf5plugin-3.0.0-py3-none-manylinux_2_5_x86_64.manylinux1_x86_64.whl", hash = "sha256:9c53f935cb301a85bb10c1986ef57d1d9b1c6b72a583b11b740b192e127785d6"},
+    {file = "hdf5plugin-3.0.0-py3-none-win_amd64.whl", hash = "sha256:0f1f677dd81c866a3d40088b7a254ed4177936759035f25a8e99d3b8263fe1e0"},
+    {file = "hdf5plugin-3.0.0.tar.gz", hash = "sha256:8c6f122f2ac23fe59c1f3f7fb636b405f2eded314945ce9a300435bc0006ef1a"},
 ]
 identify = [
     {file = "identify-2.2.10-py2.py3-none-any.whl", hash = "sha256:18d0c531ee3dbc112fa6181f34faa179de3f57ea57ae2899754f16a7e0ff6421"},
