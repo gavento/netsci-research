@@ -21,6 +21,7 @@ class Network:
 
     @classmethod
     def open(cls, json_path: Path):
+        json_path = Path(json_path)
         net = cls._open_skip_json(json_path)
         with utils.open_file(json_path, mode="r") as f:
             d = json.load(f)
@@ -33,7 +34,7 @@ class Network:
         """
         with utils.open_file(self.json_path, mode="w") as f:
             json.dump(
-                {"updated": utils.now_isofmt(), "attribs": self.attribs},
+                {"updated": utils.now_isofmt(), "attribs": utils.jsonize(self.attribs)},
                 f,
                 indent=indent,
             )
@@ -53,6 +54,7 @@ class Network:
     def from_edges(
         cls, json_path: Path, n: int, edges: np.ndarray, digraph: bool
     ) -> "Network":
+        json_path = Path(json_path)
         assert not json_path.exists()
         net = cls._open_skip_json(json_path)
         m = edges.shape[0]
@@ -72,6 +74,7 @@ class Network:
 
     @classmethod
     def from_graph(cls, json_path: Path, g: nx.Graph) -> "Network":
+        json_path = Path(json_path)
         edges = np.array(g.edges(), dtype=np.int32)
         return cls.from_edges(
             json_path, n=g.order(), edges=edges, digraph=isinstance(g, nx.DiGraph)
@@ -79,7 +82,7 @@ class Network:
 
     def get_directed_edges(self) -> np.ndarray:
         edges = self.h5_file["/edges"][()]
-        if not self["directed"]:
+        if not self["digraph"]:
             edges = np.concatenate((edges, edges[:, 1::-1]))
         return edges
 
@@ -92,7 +95,7 @@ class Network:
     @property
     def network(self):
         if self._network is None:
-            self._network = nx.DiGraph() if self["directed"] else nx.Graph()
+            self._network = nx.DiGraph() if self["digraph"] else nx.Graph()
             self._network.add_nodes_from(range(self["n"]))
             self._network.add_edges_from(self["edges"])
         return self._network
@@ -107,6 +110,7 @@ class Network:
 
     @classmethod
     def _open_skip_json(cls, json_path: Path):
+        json_path = Path(json_path)
         base_path = utils.file_basic_path(json_path, ".json")
         h5_path = base_path.with_name(base_path.name + ".h5")
         h5_file = h5py.File(h5_path, mode="a")

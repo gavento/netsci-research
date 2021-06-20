@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Any, Tuple
 
+import numpy as np
 import pyzstd
 
 log = logging.getLogger(__name__)
@@ -55,6 +56,21 @@ def get_caller_logger(name="log", levels=2, *, frame=None):
         if name in frame.f_globals:
             l = frame.f_globals[name]
     return l
+
+
+def jsonize(d: Any) -> Any:
+    if isinstance(d, dict):
+        return {k: jsonize(v) for k, v in d.items()}
+    elif isinstance(d, (list, tuple)):
+        return [jsonize(v) for v in d]
+    elif isinstance(d, (int, float, bool, str)) or d is None:
+        return d
+    elif isinstance(d, np.integer):
+        return int(d)
+    elif isinstance(d, np.floating):
+        return float(d)
+    else:
+        raise TypeError(f"Unable to JSONize type {type(d)} of {d!r}")
 
 
 @contextlib.contextmanager
