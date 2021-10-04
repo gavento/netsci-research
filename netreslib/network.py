@@ -18,6 +18,7 @@ class Network:
     h5_file: h5py.File = attr.ib()
     _network: nx.Graph = attr.ib(default=None)
     attribs: dict = attr.ib(factory=dict)
+    created: str = attr.ib(factory=utils.now_isofmt)
 
     @classmethod
     def open(cls, json_path: Path):
@@ -25,6 +26,7 @@ class Network:
         net = cls._open_skip_json(json_path)
         with utils.open_file(json_path, mode="r") as f:
             d = json.load(f)
+            net.created = d["created"]
             net.attribs = d["attribs"]
         return net
 
@@ -34,7 +36,11 @@ class Network:
         """
         with utils.open_file(self.json_path, mode="w") as f:
             json.dump(
-                {"updated": utils.now_isofmt(), "attribs": utils.jsonize(self.attribs)},
+                {
+                    "updated": utils.now_isofmt(),
+                    "created": self.created,
+                    "network": utils.jsonize(self.attribs),
+                },
                 f,
                 indent=indent,
             )
@@ -52,7 +58,12 @@ class Network:
 
     @classmethod
     def from_edges(
-        cls, json_path: Path, n: int, edges: np.ndarray, digraph: bool
+        cls,
+        json_path: Path,
+        n: int,
+        edges: np.ndarray,
+        digraph: bool,
+        label="",
     ) -> "Network":
         json_path = Path(json_path)
         assert not json_path.exists()
@@ -63,22 +74,31 @@ class Network:
         assert np.all(edges >= 0)
         assert np.all(edges < n)
 
+        net.created = utils.now_isofmt()
         net.attribs["n"] = n
         net.attribs["m"] = m
         net.attribs["digraph"] = digraph
-        net.attribs["created"] = utils.now_isofmt()
-        net.attribs["name"] = ""
+        net.attribs["label"] = label
+        net.attribs["stats"] = {}
+        net.attribs["origin"] = {}
         net.add_array("/edges", edges)
         net.write()
         return net
 
     @classmethod
-    def from_graph(cls, json_path: Path, g: nx.Graph) -> "Network":
+    def from_graph(cls, json_path: Path, g: nx.Graph, label="") -> "Network":
+        g = nx.convert_node_labels_to_integers(g)
         json_path = Path(json_path)
         edges = np.array(g.edges(), dtype=np.int32)
-        return cls.from_edges(
-            json_path, n=g.order(), edges=edges, digraph=isinstance(g, nx.DiGraph)
+        net = cls.from_edges(
+            json_path,
+            n=g.order(),
+            edges=edges,
+            digraph=isinstance(g, nx.DiGraph),
+            label=label,
         )
+        net._network = g
+        return net
 
     def get_directed_edges(self) -> np.ndarray:
         edges = self.h5_file["/edges"][()]
@@ -100,6 +120,25 @@ class Network:
             self._network.add_edges_from(self["edges"])
         return self._network
 
+    @property
+    def n(self):
+        return self.attribs["n"]
+
+    @property
+    def m(self):
+        return self.attribs["m"]
+
+    def compute_degree_stats(self):
+        """Compute degree distribution properties"""
+        sts = self.attribs["stats"]
+        g = self.network
+        degs = [k for _, k in g.degree()] or [0]
+        sts["degree_mean"] = np.mean(degs)
+        sts["degree_stddev"] = np.stddev(degs)
+        sts["degree_median"] = np.median(degs)
+        sts["degree_min"] = np.min(degs)
+        sts["degree_max"] = np.max(degs)
+
     def __getitem__(self, name: str) -> dict:
         if name in self.attribs:
             return self.attribs[name]
@@ -110,6 +149,7 @@ class Network:
 
     @classmethod
     def _open_skip_json(cls, json_path: Path):
+        """Return a Network instance woth open H5 file, not opening the JSON info file."""
         json_path = Path(json_path)
         base_path = utils.file_basic_path(json_path, ".json")
         h5_path = base_path.with_name(base_path.name + ".h5")
