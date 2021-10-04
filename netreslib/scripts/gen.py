@@ -21,7 +21,7 @@ def parse_generator(ctx, val, rng_name="rng"):
     Parse list of numbers, a range, or a distribution to be drawn from.
     Ex.: "1,2,3" "1.0, 2.3," "2..5" "U(1.0,2)" "LU(1, 1000)"
     """
-    seed = ctx.obj[rng_name].randint(0, 1<<32)
+    seed = ctx.obj[rng_name].randint(0, 1 << 32)
     try:
         return utils.parse_generator(val, seed=seed)
     except Exception as e:
@@ -63,8 +63,59 @@ def ba(ctx, k: str):
         g = nx.random_graphs.barabasi_albert_graph(n, k, seed=seed)
         net = network.Network.from_graph(path, g, label=f"Barabasi-Albert n={n} k={k}")
         net.attribs["origin"] = dict(
-            model="barabasi_albert",
+            model="BA",
             k=k,
             seed=seed,
         )
+        net.compute_degree_stats()
+        net.write()
+
+
+@gen.command()
+@click.argument("p")
+@click.pass_context
+def gnp(ctx, p):
+    o = ctx.obj
+    ngen = o["n"]
+    pgen = parse_generator(ctx, p)
+
+    for _i in tqdm.tqdm(range(o["instances"]), desc="Generating graphs"):
+        n = int(ngen())
+        p = float(pgen())
+        seed = o["rng"].randint(0, 1000000)
+        path = o["output_dir"] / f"gnp-n{n}-p{p:.3}-s{seed:06}.json"
+        g = nx.random_graphs.gnp_random_graph(n, p, seed=seed)
+        net = network.Network.from_graph(path, g, label=f"GNP n={n} p={p:.3}")
+        net.attribs["origin"] = dict(
+            model="GNP",
+            p=p,
+            seed=seed,
+        )
+        net.compute_degree_stats()
+        net.write()
+
+
+@gen.command()
+@click.argument("d")
+@click.pass_context
+def gnd(ctx, d):
+    o = ctx.obj
+    ngen = o["n"]
+    dgen = parse_generator(ctx, d)
+
+    for _i in tqdm.tqdm(range(o["instances"]), desc="Generating graphs"):
+        n = int(ngen())
+        d = float(dgen())
+        seed = o["rng"].randint(0, 1000000)
+        path = o["output_dir"] / f"gnd-n{n}-d{d:.3}-s{seed:06}.json"
+        g = nx.random_graphs.gnp_random_graph(n, d / (n - 1), seed=seed)
+        net = network.Network.from_graph(
+            path, g, label=f"GNP n={n} deg~{d:.3}"
+        )
+        net.attribs["origin"] = dict(
+            model="GND",
+            deg=d,
+            seed=seed,
+        )
+        net.compute_degree_stats()
         net.write()

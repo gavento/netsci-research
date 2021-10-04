@@ -89,7 +89,10 @@ class Network:
     def from_graph(cls, json_path: Path, g: nx.Graph, label="") -> "Network":
         g = nx.convert_node_labels_to_integers(g)
         json_path = Path(json_path)
-        edges = np.array(g.edges(), dtype=np.int32)
+        if g.size() == 0:
+            edges = np.zeros((0, 2), dtype=np.int32)
+        else:
+            edges = np.array(g.edges(), dtype=np.int32)
         net = cls.from_edges(
             json_path,
             n=g.order(),
@@ -134,7 +137,7 @@ class Network:
         g = self.network
         degs = [k for _, k in g.degree()] or [0]
         sts["degree_mean"] = np.mean(degs)
-        sts["degree_stddev"] = np.stddev(degs)
+        sts["degree_std"] = np.std(degs)
         sts["degree_median"] = np.median(degs)
         sts["degree_min"] = np.min(degs)
         sts["degree_max"] = np.max(degs)
