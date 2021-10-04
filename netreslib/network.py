@@ -131,6 +131,28 @@ class Network:
     def m(self):
         return self.attribs["m"]
 
+    def compute_distance_stats(self):
+        sts = self.attribs["stats"]
+        g = self.network
+        cc = list(nx.connected_components(g))
+        sts["components"] = len(cc)
+        if len(cc) > 1:
+            sts["diameter"] = np.inf
+            sts["radius"] = np.inf
+            sts["distance_mean"] = np.inf
+        else:
+            sts["diameter"] = nx.algorithms.distance_measures.diameter(g)
+            sts["radius"] = nx.algorithms.distance_measures.radius(g)
+            sts["distance_mean"] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(g)
+
+    def compute_clustering_stats(self):
+        sts = self.attribs["stats"]
+        g = self.network
+        sts["transitivity"] = nx.algorithms.cluster.transitivity(g)
+        c = list(nx.algorithms.cluster.clustering(g).values())
+        sts["clustering_mean"] = np.mean(c)
+        sts["clustering_std"] = np.std(c)
+
     def compute_degree_stats(self):
         """Compute degree distribution properties"""
         sts = self.attribs["stats"]
