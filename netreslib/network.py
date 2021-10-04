@@ -141,7 +141,6 @@ class Network:
             sts["radius"] = np.inf
             sts["distance_mean"] = np.inf
         else:
-            print(self.attribs)
             sts["diameter"] = nx.algorithms.distance_measures.diameter(g)
             sts["radius"] = nx.algorithms.distance_measures.radius(g)
             sts["distance_mean"] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(g)
