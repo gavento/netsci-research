@@ -4,6 +4,7 @@ import gzip
 import inspect
 import logging
 import lzma
+import re
 import time
 from pathlib import Path
 from typing import Any, Tuple
@@ -84,3 +85,47 @@ def logged_time(name, level=logging.INFO, logger=None):
     yield
     t1 = time.time()
     logger.log(level, f"{name} took {t1-t0:.3g} s")
+
+
+FLOAT_RE = r"[-+]?(?:[0-9]+[.][0-9]?|[.][0-9]+|[1-9][0-9]*|0)(?:[eE][-+]?[0-9]+)?|[+-]?[iI][nN][fF]|[+-]?[nN][aA][nN]"
+INT_RE = r"[+-]?(?:[1-9][0-9]*|0)"
+
+
+def parse_generator(s:str, seed=None):
+    """
+    Parse list of numbers or a range to be drawn from.
+    Returns a callback generating the next item.
+    Ex.: "4.2" "1,2,3" "1.0, 2.3," "2..5" "U(1.0,2)" "LU(1, 1000)"
+    """
+    s = s.strip().lower()
+    r = np.random.RandomState(seed)
+
+    # int, float or mixed value(s)
+    m = re.match(rf"^({FLOAT_RE})(?:\s*[,]\s*({FLOAT_RE}))*$", s)
+    if m:
+        a0 = [x.strip() for x in s.split(',')]
+        try:
+            a = np.array([int(x) for x in a0])
+        except ValueError: 
+            a = np.array([float(x) for x in a0])
+        return lambda: r.choice(a)
+
+    # int range (includive .. exclusive)
+    m = re.match(rf"^({INT_RE})\s*..\s*({INT_RE})$", s)
+    if m:
+        a = [int(x) for x in m.groups()]
+        assert len(a) == 2
+        return lambda: r.randint(a[0], a[1])
+
+    # uniform float range
+    m = re.match(rf"^(l?[u])\s*\(\s*({FLOAT_RE})\s*,\s*({FLOAT_RE})\s*\)+$", s)
+    if m:
+        t = m.groups()[0]
+        a = [float(x) for x in m.groups()[1:]]
+        assert len(a) == 2
+        if t == "u":
+            return lambda: r.uniform(a[0], a[1])
+        if t == "lu":
+            return lambda: np.exp(r.uniform(np.log(a[0]), np.log(a[1])))
+
+    raise ValueError(f"{s!r} can't be parsed as a generator")
