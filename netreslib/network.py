@@ -15,29 +15,49 @@ class Network:
     base_path: Path = attr.ib()
     json_path: Path = attr.ib()
     h5_path: Path = attr.ib()
-    h5_file: h5py.File = attr.ib()
+    _h5_file: h5py.File = attr.ib(default=None)
     _network: nx.Graph = attr.ib(default=None)
     attribs: dict = attr.ib(factory=dict)
     created: str = attr.ib(factory=utils.now_isofmt)
+    updated: str = attr.ib(factory=utils.now_isofmt)
 
     @classmethod
     def open(cls, json_path: Path):
-        json_path = Path(json_path)
-        net = cls._open_skip_json(json_path)
-        with utils.open_file(json_path, mode="r") as f:
+        """Open and load the given JSON. H5 file not checked and loaded lazily."""
+        net = cls._new_skip_open(json_path)
+
+        with utils.open_file(net.json_path, mode="r") as f:
             d = json.load(f)
             net.created = d["created"]
-            net.attribs = d["attribs"]
+            net.updated = d["updated"]
+            net.attribs = d["network"]
         return net
+
+    @property
+    def h5_file(self):
+        """Lazily opened H5 file for network data."""
+        if self._h5_file is None:
+            self._h5_file = h5py.File(self.h5_path, mode="a")
+        return self._h5_file
+
+    @property
+    def network(self):
+        """Lazily loaded (Di)Graph instance."""
+        if self._network is None:
+            self._network = nx.DiGraph() if self["digraph"] else nx.Graph()
+            self._network.add_nodes_from(range(self["n"]))
+            self._network.add_edges_from(self["edges"])
+        return self._network
 
     def write(self, indent=2):
         """
-        Write all data without closing data files etc.
+        Write/update JSON and flush the H5 file without closing it (if open).
         """
-        with utils.open_file(self.json_path, mode="w") as f:
+        self.updated = utils.now_isofmt()
+        with utils.open_file(self.json_path, mode="wt") as f:
             json.dump(
                 {
-                    "updated": utils.now_isofmt(),
+                    "updated": self.updated,
                     "created": self.created,
                     "network": utils.jsonize(self.attribs),
                 },
@@ -45,16 +65,21 @@ class Network:
                 indent=indent,
             )
             f.write("\n")
-        self.h5_file.flush()
 
-    def export_graphml(self, compress_gzip=True):
+        if self._h5_file is not None:
+            self._h5_file.flush()
+
+    def export_graphml(self, compress_gzip=True) -> Path:
         """
         Export the graph as Graphml, compressed by default.
+
+        Returns the path of the file.
         """
         path = self.base_path.with_name(self.base_path.name + ".graphml.gz")
         if not compress_gzip:
             path = path.with_suffix("")
         nx.write_graphml(self.network, path)
+        return path
 
     @classmethod
     def from_edges(
@@ -67,7 +92,7 @@ class Network:
     ) -> "Network":
         json_path = Path(json_path)
         assert not json_path.exists()
-        net = cls._open_skip_json(json_path)
+        net = cls._new_skip_open(json_path)
         m = edges.shape[0]
         assert edges.shape == (m, 2)
         edges = np.int32(edges)
@@ -110,18 +135,11 @@ class Network:
         return edges
 
     def add_array(self, name: str, array_data: np.ndarray, compress: bool = True):
+        """Add an array to the H5 data file"""
         c = hdf5plugin.Blosc(cname="zstd") if compress else None
         if array_data.nbytes < 1024:
             c = None
         self.h5_file.create_dataset(name, data=array_data, compression=c)
-
-    @property
-    def network(self):
-        if self._network is None:
-            self._network = nx.DiGraph() if self["digraph"] else nx.Graph()
-            self._network.add_nodes_from(range(self["n"]))
-            self._network.add_edges_from(self["edges"])
-        return self._network
 
     @property
     def n(self):
@@ -143,7 +161,9 @@ class Network:
         else:
             sts["diameter"] = nx.algorithms.distance_measures.diameter(g)
             sts["radius"] = nx.algorithms.distance_measures.radius(g)
-            sts["distance_mean"] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(g)
+            sts[
+                "distance_mean"
+            ] = nx.algorithms.shortest_paths.generic.average_shortest_path_length(g)
 
     def compute_clustering_stats(self):
         sts = self.attribs["stats"]
@@ -173,15 +193,13 @@ class Network:
             raise KeyError(f"{name!r} not an attribute nor a data array")
 
     @classmethod
-    def _open_skip_json(cls, json_path: Path):
-        """Return a Network instance woth open H5 file, not opening the JSON info file."""
+    def _new_skip_open(cls, json_path: Path):
+        """Return a Network instance without opening the H5 data file nor the JSON info file."""
         json_path = Path(json_path)
         base_path = utils.file_basic_path(json_path, ".json")
         h5_path = base_path.with_name(base_path.name + ".h5")
-        h5_file = h5py.File(h5_path, mode="a")
         return cls(
             base_path=base_path,
             json_path=json_path,
             h5_path=h5_path,
-            h5_file=h5_file,
         )
