@@ -1,5 +1,6 @@
 import contextlib
 import datetime
+import encodings
 import gzip
 import inspect
 import logging
@@ -37,14 +38,29 @@ def file_basic_path(path: Path, suffix: str) -> Path:
 
 
 def open_file(path: Path, mode="r", level=None) -> Any:
-    if path.suffix == ".zstd":
-        return pyzstd.ZstdFile(path, mode=mode, level_or_option=level)
-    elif path.suffix == ".xz":
-        return lzma.LZMAFile(path, mode=mode, level_or_option=level)
-    elif path.suffix == ".gz":
-        return gzip.GzipFile(path, mode=mode, compresslevel=level)
+    if "+" in mode:
+        raise Exception("open_file does not support mixed reads and writes")
+    elif "b" in mode:
+        wrap = lambda x: x
+    elif mode[0] == "r":
+        wrap = encodings.utf_8.StreamReader
+        mode = mode[0] + "b"
+    elif mode[0] in "wax":
+        wrap = encodings.utf_8.StreamWriter
+        mode = mode[0] + "b"
     else:
-        return open(path, mode=mode)
+        raise Exception(f"Unsupported mode: {mode!r}")
+
+    if path.suffix == ".zstd":
+        return wrap(pyzstd.ZstdFile(path, mode=mode, level_or_option=level))
+    elif path.suffix == ".xz":
+        return wrap(lzma.LZMAFile(path, mode=mode, preset=level))
+    elif path.suffix == ".gz":
+        if level is None:
+            level = 9
+        return wrap(gzip.GzipFile(path, mode=mode, compresslevel=level))
+    else:
+        return wrap(open(path, mode=mode))
 
 
 def get_caller_logger(name="log", levels=2, *, frame=None):
@@ -87,11 +103,11 @@ def logged_time(name, level=logging.INFO, logger=None):
     logger.log(level, f"{name} took {t1-t0:.3g} s")
 
 
-FLOAT_RE = r"[-+]?(?:[0-9]+[.][0-9]?|[.][0-9]+|[1-9][0-9]*|0)(?:[eE][-+]?[0-9]+)?|[+-]?[iI][nN][fF]|[+-]?[nN][aA][nN]"
+FLOAT_RE = r"[-+]?(?:[1-9][0-9]*[.][0-9]*|[.][0-9]+|0[.][0-9]+|[1-9][0-9]*|0)(?:[eE][-+]?[0-9]+)?|[+-]?[iI][nN][fF]|[+-]?[nN][aA][nN]"
 INT_RE = r"[+-]?(?:[1-9][0-9]*|0)"
 
 
-def parse_generator(s:str, seed=None):
+def parse_generator(s: str, seed=None):
     """
     Parse list of numbers or a range to be drawn from.
     Returns a callback generating the next item.
@@ -103,10 +119,10 @@ def parse_generator(s:str, seed=None):
     # int, float or mixed value(s)
     m = re.match(rf"^({FLOAT_RE})(?:\s*[,]\s*({FLOAT_RE}))*$", s)
     if m:
-        a0 = [x.strip() for x in s.split(',')]
+        a0 = [x.strip() for x in s.split(",")]
         try:
             a = np.array([int(x) for x in a0])
-        except ValueError: 
+        except ValueError:
             a = np.array([float(x) for x in a0])
         return lambda: r.choice(a)
 
@@ -118,7 +134,7 @@ def parse_generator(s:str, seed=None):
         return lambda: r.randint(a[0], a[1])
 
     # uniform float range
-    m = re.match(rf"^(l?[u])\s*\(\s*({FLOAT_RE})\s*,\s*({FLOAT_RE})\s*\)+$", s)
+    m = re.match(rf"^(l?[u])\s*\(\s*({FLOAT_RE})\s*,\s*({FLOAT_RE})\s*\)$", s)
     if m:
         t = m.groups()[0]
         a = [float(x) for x in m.groups()[1:]]
