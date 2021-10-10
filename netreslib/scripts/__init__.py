@@ -1,1 +1,1 @@
-from . import cli, gen, info, stats
+from . import cli, gen, collect
