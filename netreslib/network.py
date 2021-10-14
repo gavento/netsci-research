@@ -149,15 +149,15 @@ class Network:
     def m(self):
         return self.attribs["m"]
 
-    def compute_distance_stats(self):
+    def compute_distance_stats(self, disconnected_distance=-1.0):
         sts = self.attribs["stats"]
         g = self.network
         cc = list(nx.connected_components(g))
         sts["components"] = len(cc)
         if len(cc) > 1:
-            sts["diameter"] = np.inf
-            sts["radius"] = np.inf
-            sts["distance_mean"] = np.inf
+            sts["diameter"] = disconnected_distance
+            sts["radius"] = disconnected_distance
+            sts["distance_mean"] = disconnected_distance
         else:
             sts["diameter"] = nx.algorithms.distance_measures.diameter(g)
             sts["radius"] = nx.algorithms.distance_measures.radius(g)
