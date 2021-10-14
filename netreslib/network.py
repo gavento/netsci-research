@@ -149,7 +149,7 @@ class Network:
     def m(self):
         return self.attribs["m"]
 
-    def compute_distance_stats(self, disconnected_distance=-1.0):
+    def compute_distance_stats(self, disconnected_distance=None):
         sts = self.attribs["stats"]
         g = self.network
         cc = list(nx.connected_components(g))
